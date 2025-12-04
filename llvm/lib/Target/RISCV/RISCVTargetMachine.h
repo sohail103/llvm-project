@@ -25,7 +25,7 @@ class RISCVTargetMachine : public CodeGenTargetMachineImpl {
   mutable StringMap<std::unique_ptr<RISCVSubtarget>> SubtargetMap;
 
 public:
-  RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
+RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
                      StringRef FS, const TargetOptions &Options,
                      std::optional<Reloc::Model> RM,
                      std::optional<CodeModel::Model> CM, CodeGenOptLevel OL,
