@@ -61,3 +61,63 @@ let isRV32Only = 1 in
     foreach i = 3...31 in
         def : SysReg<"hpmcounter"#i#"h", !add(0xC83, !sub(i, 3))>;
 }
+
+// machine information registers
+def : SysReg<"mvendorid", 0xF11>; //vendor id
+def : SysReg<"marchid", 0xF12>;   // architecture id
+def : SysReg<"mimpid", 0xF13>;    // implementation id
+def : SysReg<"mhartid", 0xF14>;   // hardware thread id
+// mconfigptr is in the official risc v spec but we havent defined it here
+// because the privileged spec v1.1 doesnt have it
+
+// machine trap setup
+def : SysReg<"mstatus", 0x300>; // machine status register
+def : SysReg<"misa", 0x301>;    // isa and extensions
+// def : SysReg<"medeleg", 0x302>; // machine exception delegation register - used for delegating traps from machine mode to lower privilege mode
+// def : SysReg<"mideleg", 0x303>; // machine interrupt delegation register - used for delegating interrupts from machine mode to lower privilege mode
+// medeleg and mideleg are for delegating traps and interrupts from machine mode to a lower privilege mode
+// they are not valid in an M mode only processor
+def : SysReg<"mie", 0x304>;     // machine interrupt enable register
+def : SysReg<"mtvec", 0x305>;   // machine trap handler base address
+def : SysReg<"mcounteren", 0x306>; //machine counter enable
+/*let isRV32Only = 1 in {
+    def : SysReg<"mstatush", 0x310>;
+    def : SysReg<"medelegh", 0x312>;
+}*/ // mstatush and medelegh are not defined in the privileged spec v1.1
+
+// machine trap handling
+def : SysReg<"mscratch", 0x340>; // scratch register for machine trap handlers
+def : SysReg<"mepc", 0x341>;     // machine exception program counter
+def : SysReg<"mcause", 0x342>;   // machine trap cause
+def : SysReg<"mtval", 0x343>;    // machine bad address or instruction
+def : SysReg<"mip", 0x344>;      // machine interrupt pending
+
+// machine protection and translation
+def : SysReg<"pmpcfg0", 0x3A0>;  // physical memory protection configuration
+def : SysReg<"pmpcfg2", 0x3A2>;
+let isRV32Only = 1 in {
+    def : SysReg<"pmpcfg1", 0x3A1>;
+    def : SysReg<"pmpcfg3", 0x3A3>;
+}
+foreach i = 0...15 in {
+    def : SysReg<"pmpaddr"#i, !add(0x3B0, i)>;
+}                               // physical memory protection address register
+
+// machine counter/timers
+def : SysReg<"mcycle", 0xB00>;  // machine cycle counter
+def : SysReg<"minstret", 0xB02>;  // machine instructions retired counter
+foreach i = 3...31 in {
+    def : SysReg<"mhpmcounter"#i, !add(0xB03, !sub(i, 3))>;
+}                                   // machine performance monitoring counter
+let isRV32Only = 1 in {
+    def : SysReg<"mcycleh", 0xB80>;
+    def : SysReg<"minstreth", 0xB82>;
+    foreach i = 3...31 in {
+        def : SysReg<"mhpmcounter"#i#"h", !add(0xB83, !sub(i, 3))>; // upper 32 bits of mhpmcounter#i
+    }
+}
+
+//machine counter setup
+foreach i = 3...31 in {
+    def : SysReg<"mhpmevent"#i, !add(0x323, !sub(i, 3))>;
+}   // machine performance monitoring event selector
