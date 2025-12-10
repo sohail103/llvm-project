@@ -9,3 +9,5 @@
 #include "ShaktiRegisterInfo.td" // register descriptions for GPRs and other register classes for optimizations
 
 #include "ShaktiSchedule.td"
+
+#include "ShaktiCallingConv.td"
