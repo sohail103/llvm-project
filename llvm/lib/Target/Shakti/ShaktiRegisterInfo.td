@@ -2,14 +2,30 @@
 
 // declarations to describe shakti register files
 let Namespace = "Shakti" in {
+    
     class ShaktiReg<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
         let HWEncoding{4-0} = Enc;
         let AltNames = alt;
     }
-}
 
-let FallbackRegAltNameIndex = NoRegAltName in
-def ABIRegAltName : RegAltNameIndex;
+    class ShaktiRegWithSubRegs<bits<5> Enc, string n, list<Register> subregs, list<string> alt = []>
+        : RegisterWithSubRegs<n, subregs> {
+            let HWEncoding{4-0} = Enc;
+            let AltNames = alt;
+        }
+
+    let FallbackRegAltNameIndex = NoRegAltName in
+    def ABIRegAltName : RegAltNameIndex;
+
+    def sub_gpr_even : SubRegIndex<32> {
+        let SubRegRanges = SubRegRangeByHwMode<[RV32, RV64],
+                                               [SubRegRange<32>, SubRegRange<64>]>;
+    }
+    def sub_gpr_odd : SubRegIndex<32> {
+        let SubRegRanges = SubRegRangeByHwMode<[RV32, RV64],
+                                               [SubRegRange<32, 32>, SubRegRange<64, 64>]>;
+    }
+}
 
 // general purpose registers (aka integer registers)
 // CostPerUse is set higher for registers that may not be compressible as they 
@@ -160,7 +176,7 @@ def GPRNoX31 : GPRRegisterClass<(sub GPR, X31)> {
 // even-odd gpr pairs
 def XLenPairRI : RegInfoByHwMode<
     [RV32, RV64],
-    [RegInfo<64, 64, 32>, RegInfo<128, 128, 64>];
+    [RegInfo<64, 64, 32>, RegInfo<128, 128, 64>]>;
 
 // dummy zero register for use in the register pair containing x0
 // (as x1 is not read to or written when the x0 register pair is used)
@@ -169,3 +185,43 @@ def DUMMY_REG_PAIR_WITH_X0 : ShaktiReg<0, "0">;
 // must add DUMMY_REG_PAIR_WITH_X0 to a separate register class to prevent the
 // register's existence from changing codegen (due to the regPressureSetLimit)
 // for the GPR register class being altered
+def GPRAll : GPRRegisterClass<(add GPR, DUMMY_REG_PAIR_WITH_X0)>;
+
+let RegAltNameIndices = [ABIRegAltName] in {
+    
+    def X0_Pair : ShaktiRegWithSubRegs<0, X0.AsmName, 
+                                       [X0, DUMMY_REG_PAIR_WITH_X0], X0.AltNames> {
+        let SubRegIndices = [sub_gpr_even, sub_gpr_odd];
+        let CoveredBySubRegs = 1;
+    }
+
+    foreach I = 1-15 in {
+        defvar Index = !shl(I, 1);
+        defvar IndexP1 = !add(Index, 1);
+        defvar Reg = !cast<Register>("X"#Index);
+        defvar RegP1 = !cast<Register>("X"#IndexP1);
+        def "X" # Index #"_X" # IndexP1 : ShaktiRegWithSubRegs<Index, 
+                                                               Reg.AsmName,
+                                                               [Reg, RegP1], 
+                                                               Reg.AltNames> {
+            let SubRegIndices = [sub_gpr_even, sub_gpr_odd];
+            let CoveredBySubRegs = 1;
+        } 
+    }
+}
+
+let RegInfos = XLenPairRI, CopyCost = 2 in {
+    def GPRPair : ShaktiRegisterClass<[], 64, (add 
+    X10_X11, X12_X13, X14_X15, X16_X17,
+    X6_X7,
+    X28_X29, X30_X31,
+    X8_X9,
+    X18_X19, X20_X21, X22_X23, X24_X25, X26_X27,
+    X0_Pair, X2_X3, X4_X5
+    )>;
+
+    def GPRPairNoX0 : ShaktiRegisterClass<[], 64, (sub GPRPair, X0_Pair)>;
+
+    def GPRPairC : ShaktiRegisterClass<[], 64, (add 
+     X10_X11, X12_X13, X14_X15, X8_X9)>;
+} // let RegInfos = XLenPairRI, CopyCost=2
