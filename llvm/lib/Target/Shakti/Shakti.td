@@ -6,4 +6,6 @@
 
 #include "ShaktiSystemOperands.td" // named operands for csr instructions
 
-#include "ShaktiRegisterInfo.td"
+#include "ShaktiRegisterInfo.td" // register descriptions for GPRs and other register classes for optimizations
+
+#include "ShaktiSchedule.td"
