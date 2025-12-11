@@ -13,3 +13,5 @@
 #include "ShaktiCallingConv.td" // describes calling conventions for risc v
                                 // the risc v calling convention is handled 
                                 // with custom code in RISCVISelLowering.cpp (CC_RISCV)
+
+#include "ShaktiInstrInfo.td"
