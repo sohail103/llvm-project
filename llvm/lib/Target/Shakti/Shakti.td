@@ -1,17 +1,39 @@
-#include "llvm/Target/Target.td"
+include "llvm/Target/Target.td"
 
-#include "ShaktiFeatures.td" // subtarget features and instruction predicates
+include "ShaktiFeatures.td" // subtarget features and instruction predicates
 
-#include "ShaktiProfiles.td" // currently only defines a profile for the shakti e class
+include "ShaktiProfiles.td" // currently only defines a profile for the shakti e class
 
-#include "ShaktiSystemOperands.td" // named operands for csr instructions
+include "ShaktiSystemOperands.td" // named operands for csr instructions
 
-#include "ShaktiRegisterInfo.td" // register descriptions for GPRs and other register classes for optimizations
+include "ShaktiRegisterInfo.td" // register descriptions for GPRs and other register classes for optimizations
 
-#include "ShaktiSchedule.td"
+include "ShaktiSchedule.td"
 
-#include "ShaktiCallingConv.td" // describes calling conventions for risc v
+include "ShaktiCallingConv.td" // describes calling conventions for risc v
                                 // the risc v calling convention is handled 
                                 // with custom code in RISCVISelLowering.cpp (CC_RISCV)
 
-#include "ShaktiInstrInfo.td"
+include "ShaktiInstrInfo.td"
+
+def ShaktiInstrInfo : InstrInfo {
+    let guessInstructionProperties = 0;
+}
+
+def ShaktiASMParser : AsmParser {
+    let ShouldEmitMatchRegisterAltName = 1;
+    let AllowDuplicateRegisterNames = 1;
+}
+
+def ShaktiASMWriter : AsmWriter {
+    int PassSubtarget = 1;
+}
+
+defm : RemapAllTargetPseudoPointerOperands<GPR>;
+
+def Shakti : Target {
+    let InstructionSet = ShaktiInstrInfo;
+    let AssemblyParsers = [ShaktiASMParser];
+    let AssemblyWriters = [ShaktiASMWriter];
+    let AllowRegisterRenaming = 1;
+}

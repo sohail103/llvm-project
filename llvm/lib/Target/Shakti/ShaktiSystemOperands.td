@@ -1,4 +1,4 @@
-#include "llvm/TableGen/SearchableTable.td"
+include "llvm/TableGen/SearchableTable.td"
 
 class SysReg <string name, bits<12> op> // generic CSR format
 {
