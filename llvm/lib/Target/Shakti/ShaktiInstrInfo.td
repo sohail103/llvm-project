@@ -1,6 +1,6 @@
 // this file describes the RISC V instructions in tablegen format
 #include "ShaktiInstrFormats.td"
-// #include "ShaktiInstrFormatsC.td" // commented out for now because have to write additional logic in parser
+#include "ShaktiInstrFormatsC.td" // commented out for now because have to write additional logic in parser
 // #include "ShaktiInstrFormatsV.td" // dont need V instructions
 
 class ImmXLenAsmOperand<string prefix, string suffix = ""> : AsmOperandClass {
