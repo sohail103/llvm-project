@@ -328,7 +328,7 @@ class BranchCC_rri<bits<3> funct3, string opcodestr>
     : RVInstB<funct3, OPC_BRANCH, (outs),
               (ins GPR:$rs1, GPR:$rs2, bare_simm13_lsb0:$imm12),
               opcodestr, "$rs1, $rs2, $imm12">,
-      Sched<[WriteJmp, ReadJmp, ReadJmp]> {
+      Sched<[/*/*WriteJmp, ReadJmp, ReadJmp*/]> {
   let isBranch = 1;
   let isTerminator = 1;
   let hasSideEffects = 0;
@@ -369,7 +369,7 @@ let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_ri<bits<3> funct3, string opcodestr>
     : RVInstI<funct3, OPC_OP_IMM, (outs GPR:$rd), (ins GPR:$rs1, simm12_lo:$imm12),
               opcodestr, "$rd, $rs1, $imm12">,
-      Sched<[WriteIALU, ReadIALU]>;
+      Sched<[/*/*WriteIALU, ReadIALU*/*/]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class Shift_ri<bits<5> imm11_7, bits<3> funct3, string opcodestr>
@@ -389,14 +389,14 @@ let hasNoSchedulingInfo = 1,
     hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
 class CSR_ir<bits<3> funct3, string opcodestr>
     : RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd), (ins csr_sysreg:$imm12, GPR:$rs1),
-              opcodestr, "$rd, $imm12, $rs1">, Sched<[WriteCSR, ReadCSR]>;
+              opcodestr, "$rd, $imm12, $rs1">, Sched<[/*/*WriteCSR, ReadCSR*/]>;
 
 let hasNoSchedulingInfo = 1,
     hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
 class CSR_ii<bits<3> funct3, string opcodestr>
     : RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd),
               (ins csr_sysreg:$imm12, uimm5:$rs1),
-              opcodestr, "$rd, $imm12, $rs1">, Sched<[WriteCSR]>;
+              opcodestr, "$rd, $imm12, $rs1">, Sched<[/*/*WriteCSR*/]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ShiftW_ri<bits<7> imm11_5, bits<3> funct3, string opcodestr>
@@ -435,3 +435,707 @@ class UnaryW_r<bits<12> imm12, bits<3> funct3, string opcodestr>
 
 // instructions
 
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+let isReMaterializable = 1, isAsCheapAsAMove = 1,
+    IsSignExtendingOpW = 1 in
+def LUI : RVInstU<OPC_LUI, (outs GPR:$rd), (ins uimm20_lui:$imm20),
+                  "lui", "$rd, $imm20">, Sched<[/*/*WriteIALU*/]>;
+
+def AUIPC : RVInstU<OPC_AUIPC, (outs GPR:$rd), (ins uimm20_auipc:$imm20),
+                    "auipc", "$rd, $imm20">, Sched<[/*/*WriteIALU*/]>;
+
+def JAL : RVInstJ<OPC_JAL, (outs GPR:$rd), (ins simm21_lsb0_jal:$imm20),
+                  "jal", "$rd, $imm20">, Sched<[/*/*WriteJal*/]>;
+
+def JALR : RVInstI<0b000, OPC_JALR, (outs GPR:$rd),
+                   (ins GPR:$rs1, simm12_lo:$imm12),
+                   "jalr", "$rd, ${imm12}(${rs1})">,
+           Sched<[/*/*WriteJalr, ReadJalr*/]>;
+} // hasSideEffects = 0, mayLoad = 0, mayStore = 0
+
+def BEQ  : BranchCC_rri<0b000, "beq">;
+def BNE  : BranchCC_rri<0b001, "bne">;
+def BLT  : BranchCC_rri<0b100, "blt">;
+def BGE  : BranchCC_rri<0b101, "bge">;
+def BLTU : BranchCC_rri<0b110, "bltu">;
+def BGEU : BranchCC_rri<0b111, "bgeu">;
+
+let IsSignExtendingOpW = 1, canFoldAsLoad = 1, isReMaterializable = 1 in {
+def LB  : Load_ri<0b000, "lb">, Sched<[/*/*WriteLDB, ReadMemBase*/]>;
+def LH  : Load_ri<0b001, "lh">, Sched<[/*/*WriteLDH, ReadMemBase*/]>;
+def LW  : Load_ri<0b010, "lw">, Sched<[/*/*WriteLDW, ReadMemBase*/]>;
+def LBU : Load_ri<0b100, "lbu">, Sched<[/*/*WriteLDB, ReadMemBase*/]>;
+def LHU : Load_ri<0b101, "lhu">, Sched<[/*WriteLDH, ReadMemBase*/]>;
+}
+
+def SB : Store_rri<0b000, "sb">, Sched<[/*WriteSTB, ReadStoreData, ReadMemBase*/]>;
+def SH : Store_rri<0b001, "sh">, Sched<[/*WriteSTH, ReadStoreData, ReadMemBase*/]>;
+def SW : Store_rri<0b010, "sw">, Sched<[/*WriteSTW, ReadStoreData, ReadMemBase*/]>;
+
+// ADDI isn't always rematerializable, but isReMaterializable will be used as
+// a hint which is verified in isReMaterializableImpl.
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+def ADDI  : ALU_ri<0b000, "addi">;
+
+let IsSignExtendingOpW = 1 in {
+def SLTI  : ALU_ri<0b010, "slti">;
+def SLTIU : ALU_ri<0b011, "sltiu">;
+}
+
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
+def XORI  : ALU_ri<0b100, "xori">;
+def ORI   : ALU_ri<0b110, "ori">;
+}
+
+def ANDI  : ALU_ri<0b111, "andi">;
+
+def SLLI : Shift_ri<0b00000, 0b001, "slli">,
+           Sched<[/*WriteShiftImm, ReadShiftImm*/]>;
+def SRLI : Shift_ri<0b00000, 0b101, "srli">,
+           Sched<[/*WriteShiftImm, ReadShiftImm*/]>;
+def SRAI : Shift_ri<0b01000, 0b101, "srai">,
+           Sched<[/*WriteShiftImm, ReadShiftImm*/]>;
+
+def ADD  : ALU_rr<0b0000000, 0b000, "add", Commutable=1>,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+def SUB  : ALU_rr<0b0100000, 0b000, "sub">,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+def SLL  : ALU_rr<0b0000000, 0b001, "sll">,
+           Sched<[/*WriteShiftReg, ReadShiftReg, ReadShiftReg*/]>;
+let IsSignExtendingOpW = 1 in {
+def SLT  : ALU_rr<0b0000000, 0b010, "slt">,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+def SLTU : ALU_rr<0b0000000, 0b011, "sltu">,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+}
+def XOR  : ALU_rr<0b0000000, 0b100, "xor", Commutable=1>,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+def SRL  : ALU_rr<0b0000000, 0b101, "srl">,
+           Sched<[/*WriteShiftReg, ReadShiftReg, ReadShiftReg*/]>;
+def SRA  : ALU_rr<0b0100000, 0b101, "sra">,
+           Sched<[/*WriteShiftReg, ReadShiftReg, ReadShiftReg*/]>;
+def OR   : ALU_rr<0b0000000, 0b110, "or", Commutable=1>,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+def AND  : ALU_rr<0b0000000, 0b111, "and", Commutable=1>,
+           Sched<[/*WriteIALU, ReadIALU, ReadIALU*/]>;
+
+let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in {
+def FENCE : RVInstI<0b000, OPC_MISC_MEM, (outs),
+                    (ins fencearg:$pred, fencearg:$succ),
+                    "fence", "$pred, $succ">, Sched<[/**/]> {
+  bits<4> pred;
+  bits<4> succ;
+
+  let rs1 = 0;
+  let rd = 0;
+  let imm12 = {0b0000,pred,succ};
+}
+
+def FENCE_TSO : RVInstI<0b000, OPC_MISC_MEM, (outs), (ins), "fence.tso", "">, Sched<[/**/]> {
+  let rs1 = 0;
+  let rd = 0;
+  let imm12 = {0b1000,0b0011,0b0011};
+}
+
+def FENCE_I : RVInstI<0b001, OPC_MISC_MEM, (outs), (ins), "fence.i", "">, Sched<[/**/]> {
+  let rs1 = 0;
+  let rd = 0;
+  let imm12 = 0;
+}
+
+def ECALL : RVInstI<0b000, OPC_SYSTEM, (outs), (ins), "ecall", "">, Sched<[/*WriteJmp*/]> {
+  let rs1 = 0;
+  let rd = 0;
+  let imm12 = 0;
+}
+
+let isTrap = 1 in
+def EBREAK : RVInstI<0b000, OPC_SYSTEM, (outs), (ins), "ebreak", "">,
+             Sched<[/**/]> {
+  let rs1 = 0;
+  let rd = 0;
+  let imm12 = 1;
+}
+
+// This is a de facto standard (as set by GNU binutils) 32-bit unimplemented
+// instruction (i.e., it should always trap, if your implementation has invalid
+// instruction traps).
+let isTrap = 1 in
+def UNIMP : RVInstI<0b001, OPC_SYSTEM, (outs), (ins), "unimp", "">,
+            Sched<[/**/]> {
+  let rs1 = 0;
+  let rd = 0;
+  let imm12 = 0b110000000000;
+}
+
+} // hasSideEffects = 1, mayLoad = 0, mayStore = 0
+
+def CSRRW : CSR_ir<0b001, "csrrw">;
+def CSRRS : CSR_ir<0b010, "csrrs">;
+def CSRRC : CSR_ir<0b011, "csrrc">;
+
+def CSRRWI : CSR_ii<0b101, "csrrwi">;
+def CSRRSI : CSR_ii<0b110, "csrrsi">;
+def CSRRCI : CSR_ii<0b111, "csrrci">;
+
+// ignoring RV64I instructions section
+
+// privileged instructions
+let isBarrier = 1, isReturn = 1, isTerminator = 1 in {
+def SRET : Priv<"sret", 0b0001000>, Sched<[/**/]> {
+  let rd = 0;
+  let rs1 = 0;
+  let rs2 = 0b00010;
+}
+
+def MRET : Priv<"mret", 0b0011000>, Sched<[/**/]> {
+  let rd = 0;
+  let rs1 = 0;
+  let rs2 = 0b00010;
+}
+
+let Predicates = [HasStdExtSmrnmi] in {
+def MNRET : Priv<"mnret", 0b0111000>, Sched<[/**/]> {
+  let rd = 0;
+  let rs1 = 0;
+  let rs2 = 0b00010;
+}
+}// Predicates = [HasStdExtSmrnmi]
+} // isBarrier = 1, isReturn = 1, isTerminator = 1
+
+def WFI : Priv<"wfi", 0b0001000>, Sched<[/**/]> {
+  let rd = 0;
+  let rs1 = 0;
+  let rs2 = 0b00101;
+}
+
+// ignoring parts for std extensiond Svinval
+
+def SFENCE_VMA  : Priv_rr<"sfence.vma", 0b0001001>, Sched<[/**/]>;
+
+// ignoring parts for std extension H
+
+// ignoring debug instructions
+/*
+let isBarrier = 1, isReturn = 1, isTerminator = 1 in {
+def DRET : Priv<"dret", 0b0111101>, Sched<[/**/]> {
+  let rd = 0;
+  let rs1 = 0;
+  let rs2 = 0b10010;
+}
+*/
+
+// assembler pseudo instructions
+
+// Note that the size is 32 because up to 8 32-bit instructions are needed to
+// generate an arbitrary 64-bit immediate. However, the size does not really
+// matter since PseudoLI is currently only used in the AsmParser where it gets
+// expanded to real instructions immediately.
+
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0, Size = 32,
+    isCodeGenOnly = 0, isAsmParserOnly = 1 in
+def PseudoLI : Pseudo<(outs GPR:$rd), (ins ixlenimm_li:$imm), [],
+                      "li", "$rd, $imm">;
+
+def PseudoLB  : PseudoLoad<"lb">;
+def PseudoLBU : PseudoLoad<"lbu">;
+def PseudoLH  : PseudoLoad<"lh">;
+def PseudoLHU : PseudoLoad<"lhu">;
+def PseudoLW  : PseudoLoad<"lw">;
+
+def PseudoSB  : PseudoStore<"sb">;
+def PseudoSH  : PseudoStore<"sh">;
+def PseudoSW  : PseudoStore<"sw">;
+
+let Predicates = [IsRV64] in {
+def PseudoLWU : PseudoLoad<"lwu">;
+def PseudoLD  : PseudoLoad<"ld">;
+def PseudoSD  : PseudoStore<"sd">;
+} // Predicates = [IsRV64]
+
+def : InstAlias<"nop",           (ADDI      X0,      X0,           0), 3>;
+def : InstAlias<"li $rd, $imm",  (ADDI GPR:$rd,      X0, simm12_lo:$imm), 2>;
+def : InstAlias<"mv $rd, $rs",   (ADDI GPR:$rd, GPR:$rs,           0)>;
+
+def : InstAlias<"not $rd, $rs",  (XORI GPR:$rd, GPR:$rs,      -1)>;
+def : InstAlias<"neg $rd, $rs",  (SUB  GPR:$rd,      X0, GPR:$rs)>;
+
+let Predicates = [IsRV64] in {
+def : InstAlias<"negw $rd, $rs",   (SUBW  GPR:$rd,      X0, GPR:$rs)>;
+def : InstAlias<"sext.w $rd, $rs", (ADDIW GPR:$rd, GPR:$rs,       0)>;
+} // Predicates = [IsRV64]
+
+def : InstAlias<"seqz $rd, $rs", (SLTIU GPR:$rd, GPR:$rs,       1)>;
+def : InstAlias<"snez $rd, $rs", (SLTU  GPR:$rd,      X0, GPR:$rs)>;
+def : InstAlias<"sltz $rd, $rs", (SLT   GPR:$rd, GPR:$rs,      X0)>;
+def : InstAlias<"sgtz $rd, $rs", (SLT   GPR:$rd,      X0, GPR:$rs)>;
+
+// sgt/sgtu are recognised by the GNU assembler but the canonical slt/sltu
+// form will always be printed. Therefore, set a zero weight.
+def : InstAlias<"sgt $rd, $rs, $rt", (SLT GPR:$rd, GPR:$rt, GPR:$rs), 0>;
+def : InstAlias<"sgtu $rd, $rs, $rt", (SLTU GPR:$rd, GPR:$rt, GPR:$rs), 0>;
+
+def : InstAlias<"beqz $rs, $offset",
+                (BEQ GPR:$rs,      X0, bare_simm13_lsb0:$offset)>;
+def : InstAlias<"bnez $rs, $offset",
+                (BNE GPR:$rs,      X0, bare_simm13_lsb0:$offset)>;
+def : InstAlias<"blez $rs, $offset",
+                (BGE      X0, GPR:$rs, bare_simm13_lsb0:$offset)>;
+def : InstAlias<"bgez $rs, $offset",
+                (BGE GPR:$rs,      X0, bare_simm13_lsb0:$offset)>;
+def : InstAlias<"bltz $rs, $offset",
+                (BLT GPR:$rs,      X0, bare_simm13_lsb0:$offset)>;
+def : InstAlias<"bgtz $rs, $offset",
+                (BLT      X0, GPR:$rs, bare_simm13_lsb0:$offset)>;
+
+// Always output the canonical mnemonic for the pseudo branch instructions.
+// The GNU tools emit the canonical mnemonic for the branch pseudo instructions
+// as well (e.g. "bgt" will be recognised by the assembler but never printed by
+// objdump). Match this behaviour by setting a zero weight.
+def : InstAlias<"bgt $rs, $rt, $offset",
+                (BLT  GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+def : InstAlias<"ble $rs, $rt, $offset",
+                (BGE  GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+def : InstAlias<"bgtu $rs, $rt, $offset",
+                (BLTU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+def : InstAlias<"bleu $rs, $rt, $offset",
+                (BGEU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
+
+def : InstAlias<"j $offset",   (JAL X0, simm21_lsb0_jal:$offset)>;
+def : InstAlias<"jal $offset", (JAL X1, simm21_lsb0_jal:$offset)>;
+
+// Non-zero offset aliases of "jalr" are the lowest weight, followed by the
+// two-register form, then the one-register forms and finally "ret".
+def : InstAlias<"jr $rs",                (JALR      X0, GPR:$rs, 0), 3>;
+def : InstAlias<"jr ${offset}(${rs})",   (JALR      X0, GPR:$rs, simm12_lo:$offset)>;
+def : InstAlias<"jalr $rs",              (JALR      X1, GPR:$rs, 0), 3>;
+def : InstAlias<"jalr ${offset}(${rs})", (JALR      X1, GPR:$rs, simm12_lo:$offset)>;
+def : InstAlias<"jalr $rd, $rs",         (JALR GPR:$rd, GPR:$rs, 0), 2>;
+def : InstAlias<"ret",                   (JALR      X0,      X1, 0), 4>;
+
+// Non-canonical forms for jump targets also accepted by the assembler.
+def : InstAlias<"jr $rs, $offset",        (JALR      X0, GPR:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jalr $rs, $offset",      (JALR      X1, GPR:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jalr $rd, $rs, $offset", (JALR GPR:$rd, GPR:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jr (${rs})",             (JALR      X0, GPR:$rs, 0), 0>;
+def : InstAlias<"jalr (${rs})",           (JALR      X1, GPR:$rs, 0), 0>;
+def : InstAlias<"jalr $rd, (${rs})",      (JALR GPR:$rd, GPR:$rs, 0), 0>;
+
+def : InstAlias<"fence", (FENCE 0xF, 0xF)>; // 0xF == iorw
+
+let Predicates = [HasStdExtZihintpause] in
+def : InstAlias<"pause", (FENCE 0x1, 0x0)>; // 0x1 == w
+
+def : InstAlias<"rdinstret $rd", (CSRRS GPR:$rd, INSTRET.Encoding, X0), 2>;
+def : InstAlias<"rdcycle $rd",   (CSRRS GPR:$rd, CYCLE.Encoding, X0), 2>;
+def : InstAlias<"rdtime $rd",    (CSRRS GPR:$rd, TIME.Encoding, X0), 2>;
+
+let Predicates = [IsRV32] in {
+def : InstAlias<"rdinstreth $rd", (CSRRS GPR:$rd, INSTRETH.Encoding, X0), 2>;
+def : InstAlias<"rdcycleh $rd",   (CSRRS GPR:$rd, CYCLEH.Encoding, X0), 2>;
+def : InstAlias<"rdtimeh $rd",    (CSRRS GPR:$rd, TIMEH.Encoding, X0), 2>;
+} // Predicates = [IsRV32]
+
+def : InstAlias<"csrr $rd, $csr", (CSRRS GPR:$rd, csr_sysreg:$csr,      X0)>;
+def : InstAlias<"csrw $csr, $rs", (CSRRW      X0, csr_sysreg:$csr, GPR:$rs)>;
+def : InstAlias<"csrs $csr, $rs", (CSRRS      X0, csr_sysreg:$csr, GPR:$rs)>;
+def : InstAlias<"csrc $csr, $rs", (CSRRC      X0, csr_sysreg:$csr, GPR:$rs)>;
+
+def : InstAlias<"csrwi $csr, $imm", (CSRRWI X0, csr_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrsi $csr, $imm", (CSRRSI X0, csr_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrci $csr, $imm", (CSRRCI X0, csr_sysreg:$csr, uimm5:$imm)>;
+
+let EmitPriority = 0 in {
+def : InstAlias<"csrw $csr, $imm", (CSRRWI X0, csr_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrs $csr, $imm", (CSRRSI X0, csr_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrc $csr, $imm", (CSRRCI X0, csr_sysreg:$csr, uimm5:$imm)>;
+
+def : InstAlias<"csrrw $rd, $csr, $imm", (CSRRWI GPR:$rd, csr_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrrs $rd, $csr, $imm", (CSRRSI GPR:$rd, csr_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrrc $rd, $csr, $imm", (CSRRCI GPR:$rd, csr_sysreg:$csr, uimm5:$imm)>;
+}
+
+def : InstAlias<"sfence.vma",     (SFENCE_VMA      X0, X0), 2>;
+def : InstAlias<"sfence.vma $rs", (SFENCE_VMA GPR:$rs, X0)>;
+
+def : InstAlias<"hfence.gvma",     (HFENCE_GVMA      X0, X0), 2>;
+def : InstAlias<"hfence.gvma $rs", (HFENCE_GVMA GPR:$rs, X0)>;
+
+def : InstAlias<"hfence.vvma",     (HFENCE_VVMA      X0, X0), 2>;
+def : InstAlias<"hfence.vvma $rs", (HFENCE_VVMA GPR:$rs, X0)>;
+
+let EmitPriority = 0 in {
+def : InstAlias<"lb $rd, (${rs1})",
+                (LB  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lh $rd, (${rs1})",
+                (LH  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lw $rd, (${rs1})",
+                (LW  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lbu $rd, (${rs1})",
+                (LBU  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lhu $rd, (${rs1})",
+                (LHU  GPR:$rd, GPR:$rs1, 0)>;
+
+def : InstAlias<"sb $rs2, (${rs1})",
+                (SB  GPR:$rs2, GPR:$rs1, 0)>;
+def : InstAlias<"sh $rs2, (${rs1})",
+                (SH  GPR:$rs2, GPR:$rs1, 0)>;
+def : InstAlias<"sw $rs2, (${rs1})",
+                (SW  GPR:$rs2, GPR:$rs1, 0)>;
+
+def : InstAlias<"add $rd, $rs1, $imm12",
+                (ADDI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"and $rd, $rs1, $imm12",
+                (ANDI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"xor $rd, $rs1, $imm12",
+                (XORI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"or $rd, $rs1, $imm12",
+                (ORI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"sll $rd, $rs1, $shamt",
+                (SLLI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+def : InstAlias<"srl $rd, $rs1, $shamt",
+                (SRLI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+def : InstAlias<"sra $rd, $rs1, $shamt",
+                (SRAI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+let Predicates = [IsRV64] in {
+def : InstAlias<"lwu $rd, (${rs1})",
+                (LWU  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"ld $rd, (${rs1})",
+                (LD  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"sd $rs2, (${rs1})",
+                (SD  GPR:$rs2, GPR:$rs1, 0)>;
+
+def : InstAlias<"addw $rd, $rs1, $imm12",
+                (ADDIW  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"sllw $rd, $rs1, $shamt",
+                (SLLIW  GPR:$rd, GPR:$rs1, uimm5:$shamt)>;
+def : InstAlias<"srlw $rd, $rs1, $shamt",
+                (SRLIW  GPR:$rd, GPR:$rs1, uimm5:$shamt)>;
+def : InstAlias<"sraw $rd, $rs1, $shamt",
+                (SRAIW  GPR:$rd, GPR:$rs1, uimm5:$shamt)>;
+} // Predicates = [IsRV64]
+def : InstAlias<"slt $rd, $rs1, $imm12",
+                (SLTI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"sltu $rd, $rs1, $imm12",
+                (SLTIU  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+}
+
+def : MnemonicAlias<"move", "mv">;
+
+// The SCALL and SBREAK instructions were renamed to ECALL and EBREAK in
+// version 2.1 of the user-level ISA. Like the GNU toolchain, we still accept
+// the old name for backwards compatibility.
+def : MnemonicAlias<"scall", "ecall">;
+def : MnemonicAlias<"sbreak", "ebreak">;
+
+def : InstAlias<"zext.b $rd, $rs", (ANDI GPR:$rd, GPR:$rs, 0xFF)>;
+
+let Predicates = [HasStdExtZicfilp] in {
+def : InstAlias<"lpad $imm20", (AUIPC X0, uimm20:$imm20)>;
+}
+
+// .insn directive instructions
+let EmitPriority = 0 in {
+def : InstAlias<"lb $rd, (${rs1})",
+                (LB  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lh $rd, (${rs1})",
+                (LH  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lw $rd, (${rs1})",
+                (LW  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lbu $rd, (${rs1})",
+                (LBU  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"lhu $rd, (${rs1})",
+                (LHU  GPR:$rd, GPR:$rs1, 0)>;
+
+def : InstAlias<"sb $rs2, (${rs1})",
+                (SB  GPR:$rs2, GPR:$rs1, 0)>;
+def : InstAlias<"sh $rs2, (${rs1})",
+                (SH  GPR:$rs2, GPR:$rs1, 0)>;
+def : InstAlias<"sw $rs2, (${rs1})",
+                (SW  GPR:$rs2, GPR:$rs1, 0)>;
+
+def : InstAlias<"add $rd, $rs1, $imm12",
+                (ADDI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"and $rd, $rs1, $imm12",
+                (ANDI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"xor $rd, $rs1, $imm12",
+                (XORI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"or $rd, $rs1, $imm12",
+                (ORI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"sll $rd, $rs1, $shamt",
+                (SLLI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+def : InstAlias<"srl $rd, $rs1, $shamt",
+                (SRLI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+def : InstAlias<"sra $rd, $rs1, $shamt",
+                (SRAI  GPR:$rd, GPR:$rs1, uimmlog2xlen:$shamt)>;
+let Predicates = [IsRV64] in {
+def : InstAlias<"lwu $rd, (${rs1})",
+                (LWU  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"ld $rd, (${rs1})",
+                (LD  GPR:$rd, GPR:$rs1, 0)>;
+def : InstAlias<"sd $rs2, (${rs1})",
+                (SD  GPR:$rs2, GPR:$rs1, 0)>;
+
+def : InstAlias<"addw $rd, $rs1, $imm12",
+                (ADDIW  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"sllw $rd, $rs1, $shamt",
+                (SLLIW  GPR:$rd, GPR:$rs1, uimm5:$shamt)>;
+def : InstAlias<"srlw $rd, $rs1, $shamt",
+                (SRLIW  GPR:$rd, GPR:$rs1, uimm5:$shamt)>;
+def : InstAlias<"sraw $rd, $rs1, $shamt",
+                (SRAIW  GPR:$rd, GPR:$rs1, uimm5:$shamt)>;
+} // Predicates = [IsRV64]
+def : InstAlias<"slt $rd, $rs1, $imm12",
+                (SLTI  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<"sltu $rd, $rs1, $imm12",
+                (SLTIU  GPR:$rd, GPR:$rs1, simm12_lo:$imm12)>;
+}
+
+def : MnemonicAlias<"move", "mv">;
+
+// The SCALL and SBREAK instructions were renamed to ECALL and EBREAK in
+// version 2.1 of the user-level ISA. Like the GNU toolchain, we still accept
+// the old name for backwards compatibility.
+def : MnemonicAlias<"scall", "ecall">;
+def : MnemonicAlias<"sbreak", "ebreak">;
+
+def : InstAlias<"zext.b $rd, $rs", (ANDI GPR:$rd, GPR:$rs, 0xFF)>;
+
+let Predicates = [HasStdExtZicfilp] in {
+def : InstAlias<"lpad $imm20", (AUIPC X0, uimm20:$imm20)>;
+}
+
+// isCodeGenOnly = 1 to hide them from the tablegened assembly parser.
+let isCodeGenOnly = 1, hasSideEffects = 1, mayLoad = 1, mayStore = 1,
+    hasNoSchedulingInfo = 1 in {
+def Insn16 : RVInst16<(outs), (ins uimm16:$value), "", "", [], InstFormatOther> {
+  bits<16> value;
+
+  let Inst{15-0} = value;
+  let AsmString = ".insn 0x2, $value";
+}
+def Insn32 : RVInst<(outs), (ins uimm32:$value), "", "", [], InstFormatOther> {
+  bits<32> value;
+
+  let Inst{31-0} = value;
+  let AsmString = ".insn 0x4, $value";
+}
+def Insn48 : RVInst48<(outs), (ins uimm48:$value), "", "", [], InstFormatOther> {
+  bits<48> value;
+  let Inst{47-0} = value;
+  let AsmString = ".insn 0x6, $value";
+}
+def Insn64 : RVInst64<(outs), (ins uimm64:$value), "", "", [], InstFormatOther> {
+  bits<64> value;
+  let Inst{63-0} = value;
+  let AsmString = ".insn 0x8, $value";
+}
+} // isCodeGenOnly, hasSideEffects, mayLoad, mayStore, hasNoSchedulingInfo
+
+// isCodeGenOnly = 1 to hide them from the tablegened assembly parser.
+let isCodeGenOnly = 1, hasSideEffects = 1, mayLoad = 1, mayStore = 1,
+    hasNoSchedulingInfo = 1 in {
+def InsnR : DirectiveInsnR<(outs AnyReg:$rd), (ins uimm7_opcode:$opcode, uimm3:$funct3,
+                                                   uimm7:$funct7, AnyReg:$rs1,
+                                                   AnyReg:$rs2),
+                           "$opcode, $funct3, $funct7, $rd, $rs1, $rs2">;
+def InsnR4 : DirectiveInsnR4<(outs AnyReg:$rd), (ins uimm7_opcode:$opcode,
+                                                     uimm3:$funct3,
+                                                     uimm2:$funct2,
+                                                     AnyReg:$rs1, AnyReg:$rs2,
+                                                     AnyReg:$rs3),
+                            "$opcode, $funct3, $funct2, $rd, $rs1, $rs2, $rs3">;
+def InsnI : DirectiveInsnI<(outs AnyReg:$rd), (ins uimm7_opcode:$opcode, uimm3:$funct3,
+                                                   AnyReg:$rs1, simm12_lo:$imm12),
+                           "$opcode, $funct3, $rd, $rs1, $imm12">;
+def InsnI_Mem : DirectiveInsnI<(outs AnyReg:$rd), (ins uimm7_opcode:$opcode,
+                                                       uimm3:$funct3,
+                                                       AnyReg:$rs1,
+                                                       simm12_lo:$imm12),
+                               "$opcode, $funct3, $rd, ${imm12}(${rs1})">;
+def InsnB : DirectiveInsnB<(outs), (ins uimm7_opcode:$opcode, uimm3:$funct3,
+                                        AnyReg:$rs1, AnyReg:$rs2,
+                                        bare_simm13_lsb0:$imm12),
+                           "$opcode, $funct3, $rs1, $rs2, $imm12">;
+def InsnU : DirectiveInsnU<(outs AnyReg:$rd), (ins uimm7_opcode:$opcode,
+                                                   uimm20_lui:$imm20),
+                           "$opcode, $rd, $imm20">;
+def InsnJ : DirectiveInsnJ<(outs AnyReg:$rd), (ins uimm7_opcode:$opcode,
+                                                   simm21_lsb0_jal:$imm20),
+                           "$opcode, $rd, $imm20">;
+def InsnS : DirectiveInsnS<(outs), (ins uimm7_opcode:$opcode, uimm3:$funct3,
+                                        AnyReg:$rs2, AnyReg:$rs1,
+                                        simm12_lo:$imm12),
+                           "$opcode, $funct3, $rs2, ${imm12}(${rs1})">;
+} // isCodeGenOnly, hasSideEffects, mayLoad, mayStore, hasNoSchedulingInfo
+
+// Use InstAliases to match these so that we can combine the insn and format
+// into a mnemonic to use as the key for the tablegened asm matcher table. The
+// parser will take care of creating these fake mnemonics and will only do it
+// for known formats.
+let EmitPriority = 0 in {
+def : InstAlias<".insn_r $opcode, $funct3, $funct7, $rd, $rs1, $rs2",
+                (InsnR AnyReg:$rd, uimm7_opcode:$opcode, uimm3:$funct3, uimm7:$funct7,
+                       AnyReg:$rs1, AnyReg:$rs2)>;
+// Accept 4 register form of ".insn r" as alias for ".insn r4".
+def : InstAlias<".insn_r $opcode, $funct3, $funct2, $rd, $rs1, $rs2, $rs3",
+                (InsnR4 AnyReg:$rd, uimm7_opcode:$opcode, uimm3:$funct3, uimm2:$funct2,
+                        AnyReg:$rs1, AnyReg:$rs2, AnyReg:$rs3)>;
+def : InstAlias<".insn_r4 $opcode, $funct3, $funct2, $rd, $rs1, $rs2, $rs3",
+                (InsnR4 AnyReg:$rd, uimm7_opcode:$opcode, uimm3:$funct3, uimm2:$funct2,
+                        AnyReg:$rs1, AnyReg:$rs2, AnyReg:$rs3)>;
+def : InstAlias<".insn_i $opcode, $funct3, $rd, $rs1, $imm12",
+                (InsnI AnyReg:$rd, uimm7_opcode:$opcode, uimm3:$funct3, AnyReg:$rs1,
+                       simm12_lo:$imm12)>;
+def : InstAlias<".insn_i $opcode, $funct3, $rd, ${imm12}(${rs1})",
+                (InsnI_Mem AnyReg:$rd, uimm7_opcode:$opcode, uimm3:$funct3,
+                           AnyReg:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<".insn_i $opcode, $funct3, $rd, (${rs1})",
+                (InsnI_Mem AnyReg:$rd, uimm7_opcode:$opcode, uimm3:$funct3,
+                           AnyReg:$rs1, 0)>;
+def : InstAlias<".insn_b $opcode, $funct3, $rs1, $rs2, $imm12",
+                (InsnB uimm7_opcode:$opcode, uimm3:$funct3, AnyReg:$rs1,
+                       AnyReg:$rs2, bare_simm13_lsb0:$imm12)>;
+// Accept sb as an alias for b.
+def : InstAlias<".insn_sb $opcode, $funct3, $rs1, $rs2, $imm12",
+                (InsnB uimm7_opcode:$opcode, uimm3:$funct3, AnyReg:$rs1,
+                       AnyReg:$rs2, bare_simm13_lsb0:$imm12)>;
+def : InstAlias<".insn_u $opcode, $rd, $imm20",
+                (InsnU AnyReg:$rd, uimm7_opcode:$opcode, uimm20_lui:$imm20)>;
+def : InstAlias<".insn_j $opcode, $rd, $imm20",
+                (InsnJ AnyReg:$rd, uimm7_opcode:$opcode, simm21_lsb0_jal:$imm20)>;
+// Accept uj as an alias for j.
+def : InstAlias<".insn_uj $opcode, $rd, $imm20",
+                (InsnJ AnyReg:$rd, uimm7_opcode:$opcode, simm21_lsb0_jal:$imm20)>;
+def : InstAlias<".insn_s $opcode, $funct3, $rs2, ${imm12}(${rs1})",
+                (InsnS uimm7_opcode:$opcode, uimm3:$funct3, AnyReg:$rs2,
+                       AnyReg:$rs1, simm12_lo:$imm12)>;
+def : InstAlias<".insn_s $opcode, $funct3, $rs2, (${rs1})",
+                (InsnS uimm7_opcode:$opcode, uimm3:$funct3, AnyReg:$rs2,
+                       AnyReg:$rs1, 0)>;
+}
+
+/// Access to system registers
+
+// Helpers for defining specific operations. They are defined for each system
+// register separately. Side effect is not used because dependencies are
+// expressed via use-def properties.
+
+class ReadSysReg<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs GPR:$rd), (ins),
+           [(set GPR:$rd, (XLenVT (riscv_read_csr (XLenVT SR.Encoding))))]>,
+    PseudoInstExpansion<(CSRRS GPR:$rd, SR.Encoding, X0)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+}
+
+class WriteSysReg<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs), (ins GPR:$val),
+           [(riscv_write_csr (XLenVT SR.Encoding), (XLenVT GPR:$val))]>,
+    PseudoInstExpansion<(CSRRW X0, SR.Encoding, GPR:$val)> {
+  let hasSideEffects = 0;
+  let Defs = Regs;
+}
+
+class WriteSysRegImm<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs), (ins uimm5:$val),
+           [(riscv_write_csr (XLenVT SR.Encoding), uimm5:$val)]>,
+    PseudoInstExpansion<(CSRRWI X0, SR.Encoding, uimm5:$val)> {
+  let hasSideEffects = 0;
+  let Defs = Regs;
+}
+
+class SwapSysReg<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs GPR:$rd), (ins GPR:$val),
+           [(set GPR:$rd, (riscv_swap_csr (XLenVT SR.Encoding), (XLenVT GPR:$val)))]>,
+    PseudoInstExpansion<(CSRRW GPR:$rd, SR.Encoding, GPR:$val)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+  let Defs = Regs;
+}
+
+class SwapSysRegImm<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs GPR:$rd), (ins uimm5:$val),
+           [(set GPR:$rd, (XLenVT (riscv_swap_csr (XLenVT SR.Encoding), uimm5:$val)))]>,
+    PseudoInstExpansion<(CSRRWI GPR:$rd, SR.Encoding, uimm5:$val)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+  let Defs = Regs;
+}
+
+class ClearSysReg<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs), (ins GPR:$val),
+           [(riscv_clear_csr (XLenVT SR.Encoding), (XLenVT GPR:$val))]>,
+    PseudoInstExpansion<(CSRRC X0, SR.Encoding, GPR:$val)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+  let Defs = Regs;
+}
+
+class ClearSysRegImm<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs), (ins uimm5:$val),
+           [(riscv_clear_csr (XLenVT SR.Encoding), uimm5:$val)]>,
+    PseudoInstExpansion<(CSRRCI X0, SR.Encoding, uimm5:$val)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+  let Defs = Regs;
+}
+
+class SetSysReg<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs), (ins GPR:$val),
+           [(riscv_set_csr (XLenVT SR.Encoding), (XLenVT GPR:$val))]>,
+    PseudoInstExpansion<(CSRRS X0, SR.Encoding, GPR:$val)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+  let Defs = Regs;
+}
+
+class SetSysRegImm<SysReg SR, list<Register> Regs>
+  : Pseudo<(outs), (ins uimm5:$val),
+           [(riscv_set_csr (XLenVT SR.Encoding), uimm5:$val)]>,
+    PseudoInstExpansion<(CSRRSI X0, SR.Encoding, uimm5:$val)> {
+  let hasSideEffects = 0;
+  let Uses = Regs;
+  let Defs = Regs;
+}
+
+def ReadFRM : ReadSysReg<SysRegFRM, [FRM]>;
+let hasPostISelHook = 1 in {
+def WriteFRM : WriteSysReg<SysRegFRM, [FRM]>;
+def WriteFRMImm : WriteSysRegImm<SysRegFRM, [FRM]>;
+def SwapFRMImm : SwapSysRegImm<SysRegFRM, [FRM]>;
+}
+
+def WriteVXRMImm : WriteSysRegImm<SysRegVXRM, [VXRM]>;
+
+let hasSideEffects = true in {
+def ReadFFLAGS : ReadSysReg<SysRegFFLAGS, [FFLAGS]>;
+def WriteFFLAGS : WriteSysReg<SysRegFFLAGS, [FFLAGS]>;
+}
+
+let hasPostISelHook = 1 in {
+def ReadFCSR : ReadSysReg<SysRegFCSR, [FRM, FFLAGS]>;
+def WriteFCSR : WriteSysReg<SysRegFCSR, [FRM, FFLAGS]>;
+def WriteFCSRImm : WriteSysRegImm<SysRegFCSR, [FRM, FFLAGS]>;
+def ClearFCSR : ClearSysReg<SysRegFCSR, [FRM, FFLAGS]>;
+def ClearFCSRImm : ClearSysRegImm<SysRegFCSR, [FRM, FFLAGS]>;
+def SetFCSR : SetSysReg<SysRegFCSR, [FRM, FFLAGS]>;
+def SetFCSRImm : SetSysRegImm<SysRegFCSR, [FRM, FFLAGS]>;
+}
+
+/// Other pseudo-instructions
+
+// Pessimistically assume the stack pointer will be clobbered
+let Defs = [X2], Uses = [X2] in {
+def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+                              [(callseq_start timm:$amt1, timm:$amt2)]>;
+def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+                              [(callseq_end timm:$amt1, timm:$amt2)]>;
+} // Defs = [X2], Uses = [X2]
+
+#include "ShaktiInstrInfoM.td"
+#include "ShaktiInstrInfoA.td"
+// #include "ShaktiInstrInfoZa.td"
+// #include "ShaktiInstrInfoZalasr.td"
+
+// #include "ShaktiInstrGISel.td" // global i sel
