@@ -1135,6 +1135,7 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 
 #include "ShaktiInstrInfoM.td"
 #include "ShaktiInstrInfoA.td"
+#include "ShaktiInstrInfoC.td"
 // #include "ShaktiInstrInfoZa.td"
 // #include "ShaktiInstrInfoZalasr.td"
 
