@@ -197,8 +197,8 @@ def IS_ALTFMT        : AltFmtType<2>;
 
 class RVInstCommon<dag outs, dag ins, string opcodestr, string argstr,
                    list<dag> pattern, InstFormat format> : Instruction {
-  let Namespace = "RISCV";
-
+  let Namespace = "Shakti";
+  let isBarrier = 0;
   dag OutOperandList = outs;
   dag InOperandList = ins;
   let AsmString = opcodestr # !if(!empty(argstr), "", "\t" # argstr);
@@ -330,7 +330,7 @@ class PseudoQuietFCMP<DAGOperand Ty>
   let mayLoad = 0;
   let mayStore = 0;
 }
-
+/*
 // Pseudo load instructions.
 class PseudoLoad<string opcodestr, DAGOperand rdty = GPR>
     : Pseudo<(outs rdty:$rd), (ins bare_symbol:$addr), [], opcodestr, "$rd, $addr"> {
@@ -359,6 +359,7 @@ class PseudoStore<string opcodestr, DAGOperand rsty = GPR>
   let isCodeGenOnly = 0;
   let isAsmParserOnly = 1;
 }
+*/
 
 // Instruction formats are listed in the order they appear in the RISC-V
 // instruction set manual (R, R4, I, S, B, U, J).

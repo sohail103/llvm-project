@@ -26,6 +26,9 @@ let Namespace = "Shakti" in {
                                                [SubRegRange<32, 32>, SubRegRange<64, 64>]>;
     }
 }
+def XLenVT : ValueTypeByHwMode<[RV32, RV64],
+                               [i32,  i64]>;
+defvar XLenPairVT = untyped;
 
 // general purpose registers (aka integer registers)
 // CostPerUse is set higher for registers that may not be compressible as they 
@@ -97,7 +100,7 @@ class ShaktiRegisterClass<list<ValueType> regTypes, int align, dag regList>
 }
 
 class GPRRegisterClass<dag regList>
-    : ShaktiRegisterClass<[], 32, regList> {
+    : ShaktiRegisterClass<[XLenVT], 32, regList> {
         
         let RegInfos = XLenRI;
 }
@@ -211,7 +214,7 @@ let RegAltNameIndices = [ABIRegAltName] in {
 }
 
 let RegInfos = XLenPairRI, CopyCost = 2 in {
-    def GPRPair : ShaktiRegisterClass<[], 64, (add 
+    def GPRPair : ShaktiRegisterClass<[XLenVT], 64, (add 
     X10_X11, X12_X13, X14_X15, X16_X17,
     X6_X7,
     X28_X29, X30_X31,
@@ -220,8 +223,8 @@ let RegInfos = XLenPairRI, CopyCost = 2 in {
     X0_Pair, X2_X3, X4_X5
     )>;
 
-    def GPRPairNoX0 : ShaktiRegisterClass<[], 64, (sub GPRPair, X0_Pair)>;
+    def GPRPairNoX0 : ShaktiRegisterClass<[XLenVT], 64, (sub GPRPair, X0_Pair)>;
 
-    def GPRPairC : ShaktiRegisterClass<[], 64, (add 
+    def GPRPairC : ShaktiRegisterClass<[XLenVT], 64, (add 
      X10_X11, X12_X13, X14_X15, X8_X9)>;
 } // let RegInfos = XLenPairRI, CopyCost=2

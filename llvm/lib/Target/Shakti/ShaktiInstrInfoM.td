@@ -50,12 +50,12 @@ def REM     : ALU_rr<0b0000001, 0b110, "rem">,
 def REMU    : ALU_rr<0b0000001, 0b111, "remu">,
               Sched<[WriteIRem, ReadIRem, ReadIRem]>;
 } // Predicates = [HasStdExtM]
-
+/*
 let Predicates = [HasStdExtZmmul, IsRV64], IsSignExtendingOpW = 1 in {
 def MULW    : ALUW_rr<0b0000001, 0b000, "mulw", Commutable=1>,
               Sched<[WriteIMul32, ReadIMul32, ReadIMul32]>;
-} // Predicates = [HasStdExtZmmul, IsRV64]
-
+} // Predicates = [HasStdExtZmmul, IsRV64] */
+/*
 let Predicates = [HasStdExtM, IsRV64], IsSignExtendingOpW = 1 in {
 def DIVW    : ALUW_rr<0b0000001, 0b100, "divw">,
               Sched<[WriteIDiv32, ReadIDiv32, ReadIDiv32]>;
@@ -65,7 +65,7 @@ def REMW    : ALUW_rr<0b0000001, 0b110, "remw">,
               Sched<[WriteIRem32, ReadIRem32, ReadIRem32]>;
 def REMUW   : ALUW_rr<0b0000001, 0b111, "remuw">,
               Sched<[WriteIRem32, ReadIRem32, ReadIRem32]>;
-} // Predicates = [HasStdExtM, IsRV64]
+} // Predicates = [HasStdExtM, IsRV64] */
 
 //===----------------------------------------------------------------------===//
 // Pseudo-instructions and codegen patterns
@@ -84,7 +84,7 @@ def : PatGprGpr<udiv, DIVU>;
 def : PatGprGpr<srem, REM>;
 def : PatGprGpr<urem, REMU>;
 } // Predicates = [HasStdExtM]
-
+/*
 // Select W instructions if only the lower 32-bits of the result are used.
 let Predicates = [HasStdExtZmmul, IsRV64] in
 def : PatGprGpr<binop_allwusers<mul>, MULW>;
@@ -93,16 +93,18 @@ let Predicates = [HasStdExtM, IsRV64] in {
 def : PatGprGpr<riscv_divw, DIVW>;
 def : PatGprGpr<riscv_divuw, DIVUW>;
 def : PatGprGpr<riscv_remuw, REMUW>;
-
+*/
 // Handle the specific cases where using DIVU/REMU would be correct and result
 // in fewer instructions than emitting DIVUW/REMUW then zero-extending the
 // result.
+/*
 def : Pat<(and (riscv_divuw (assertzexti32 GPR:$rs1),
                             (assertzexti32 GPR:$rs2)), 0xffffffff),
           (DIVU GPR:$rs1, GPR:$rs2)>;
 def : Pat<(and (riscv_remuw (assertzexti32 GPR:$rs1),
                             (assertzexti32 GPR:$rs2)), 0xffffffff),
           (REMU GPR:$rs1, GPR:$rs2)>;
+          
 
 // Although the sexti32 operands may not have originated from an i32 srem,
 // this pattern is safe as it is impossible for two sign extended inputs to
@@ -119,3 +121,4 @@ let Predicates = [HasStdExtZmmul, IsRV64, NoStdExtZba] in {
 def : Pat<(i64 (mul (and GPR:$rs1, 0xffffffff), (and GPR:$rs2, 0xffffffff))),
           (MULHU (i64 (SLLI GPR:$rs1, 32)), (i64 (SLLI GPR:$rs2, 32)))>;
 } // Predicates = [HasStdExtZmmul, IsRV64, NoStdExtZba]
+*/

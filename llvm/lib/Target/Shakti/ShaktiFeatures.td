@@ -146,3 +146,6 @@ def IsRV32 : Predicate<"!Subtarget->is64Bit()">,
 def IsRV64 : Predicate<"Subtarget->is64Bit()">,
              AssemblerPredicate<(all_of Feature64Bit),
                                 "RV64I Base instruction set">;
+
+defvar RV32 = DefaultMode;
+def RV64 : HwMode<[IsRV64]>;
